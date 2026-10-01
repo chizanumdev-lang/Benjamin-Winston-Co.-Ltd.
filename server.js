@@ -2,6 +2,7 @@ const path = require("path");
 const express = require("express");
 const { Pool } = require("pg");
 const catalogue = require("./data/catalogue.js");
+const { search, byCategoryThenDescription, natural } = require("./search.js");
 
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is not set. Set it to a Postgres connection string.");
@@ -71,10 +72,6 @@ app.get("/api/products", async (req, res, next) => {
     const clauses = [];
     const params = [];
 
-    if (q) {
-      params.push(`%${q}%`);
-      clauses.push(`(description ILIKE $${params.length} OR code ILIKE $${params.length} OR category ILIKE $${params.length})`);
-    }
     if (category) {
       params.push(category);
       clauses.push(`category = $${params.length}`);
@@ -102,7 +99,24 @@ app.get("/api/products", async (req, res, next) => {
       `SELECT id, category, code, description, price::float8 AS price, unit, is_custom FROM products ${where} ORDER BY ${orderBy}`,
       params
     );
-    res.json(rows);
+
+    // Text sorts compare numbers as numbers ("2.5mm" before "10mm"), which
+    // SQL's ORDER BY can't do.
+    if (sort === "name_asc") rows.sort((a, b) => natural.compare(a.description, b.description));
+    else if (sort === "name_desc") rows.sort((a, b) => natural.compare(b.description, a.description));
+    else if (!sortMap[sort]) rows.sort(byCategoryThenDescription);
+
+    if (!q || !String(q).trim()) return res.json(rows);
+
+    // Search ranks by relevance unless the user picked a sort; with an explicit
+    // sort, keep that order and just filter.
+    const result = search(rows, String(q));
+    const ids = new Set(result.rows.map((r) => r.id));
+    const out = sortMap[sort] ? rows.filter((r) => ids.has(r.id)) : result.rows;
+
+    res.set("X-Search-Match", result.match);
+    res.set("X-Search-Unmatched", encodeURIComponent(result.unmatched.join(" ")));
+    res.json(out);
   } catch (err) {
     next(err);
   }

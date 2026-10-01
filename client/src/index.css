@@ -5,27 +5,51 @@
   --bg-elevated: #ffffff;
   --ink: #2a2926;
   --ink-soft: #4a4844;
-  --muted: #837f76;
+  --muted: #6b675f;
   --border: #e7e2d9;
+  /* Outlines of inputs and selects: ≥3:1 so fields are findable (WCAG 1.4.11). */
+  --border-strong: #8c877d;
   --accent: #c96a2e;
   --accent-soft: #f3e3d4;
-  --shadow: 0 1px 2px rgba(40, 30, 10, 0.04), 0 6px 16px rgba(40, 30, 10, 0.05);
+  --accent-strong: #a9531f;
+  --on-accent: #ffffff;
+  --danger: #b3261e;
+  --danger-soft: #fbe9e7;
+  --success-soft: #e3efe2;
   --shadow-hover: 0 2px 4px rgba(40, 30, 10, 0.06), 0 10px 24px rgba(40, 30, 10, 0.09);
   --radius-lg: 16px;
+
+  /* Type scale (system UI face). */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 16px;
+  --text-2xl: 17px;
   --radius-md: 12px;
   --radius-sm: 8px;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --bg: #17181a;
   --bg-elevated: #202226;
   --ink: #eeece7;
   --ink-soft: #cfccc4;
-  --muted: #8d8b85;
+  --muted: #9a978f;
   --border: #2d2f33;
+  --border-strong: #6b6e74;
   --accent: #e08a4f;
   --accent-soft: #3a2c20;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --accent-strong: #e08a4f;
+  --on-accent: #17181a;
+  --danger: #f2a097;
+  --danger-soft: #3a2220;
+  --success-soft: #1f3020;
   --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.45);
 }
 
@@ -40,11 +64,12 @@ body {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* System UI faces: instant on counter PCs (Segoe UI on Windows, SF on Mac),
+     no font download, and tabular figures for the price column. */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
@@ -64,8 +89,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   padding: 18px 24px;
-  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
 }
 
@@ -87,13 +111,13 @@ body {
   border-radius: 50%;
   color: var(--accent);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--text-md);
   letter-spacing: 0.02em;
 }
 
 .brand h1 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-2xl);
   font-weight: 650;
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -104,7 +128,7 @@ body {
 .brand p {
   margin: 2px 0 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,7 +142,7 @@ body {
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   color: var(--ink);
-  font-size: 17px;
+  font-size: var(--text-2xl);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -148,11 +172,22 @@ main {
   text-align: center;
   padding: 22px 24px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   border-top: 1px solid var(--border);
 }
 
 /* ---------- Controls ---------- */
+
+/* The search controls and result line stay pinned under the header while
+   scrolling (desktop and tablet; on phones they'd fill the screen). */
+.toolbar {
+  position: sticky;
+  top: var(--header-h, 0px);
+  z-index: 5;
+  margin: -24px -24px 0;
+  padding: 24px 24px 0;
+  background: var(--bg);
+}
 
 .controls {
   display: grid;
@@ -167,6 +202,26 @@ main {
   align-items: center;
 }
 
+.search-shortcut {
+  position: absolute;
+  right: 12px;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#search:focus ~ .search-shortcut {
+  display: none;
+}
+
 .search-icon {
   position: absolute;
   left: 14px;
@@ -179,8 +234,8 @@ main {
 #search {
   width: 100%;
   padding: 11px 14px 11px 40px;
-  font-size: 15px;
-  border: 1px solid var(--border);
+  font-size: var(--text-lg);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   color: var(--ink);
@@ -192,42 +247,48 @@ main {
 
 .select {
   position: relative;
-  max-width: 220px;
+  display: flex;
+  align-items: center;
+  width: 220px;
 }
 
 .select-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  appearance: none;
   width: 100%;
-  padding: 11px 14px;
+  padding: 11px 36px 11px 14px;
   font-family: inherit;
-  font-size: 13.5px;
-  border: 1px solid var(--border);
+  font-size: var(--text-md);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background-color: var(--bg-elevated);
   color: var(--ink);
   cursor: pointer;
-  text-align: left;
+  text-overflow: ellipsis;
 }
 
-.select-trigger-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.select-trigger:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 
 .select-chevron {
+  position: absolute;
+  right: 13px;
   width: 14px;
   height: 14px;
-  flex-shrink: 0;
   color: var(--muted);
-  transition: transform 0.15s ease;
+  pointer-events: none;
 }
 
-.select-trigger[aria-expanded='true'] .select-chevron {
-  transform: rotate(180deg);
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .select-listbox {
@@ -250,7 +311,7 @@ main {
 
 .select-option {
   padding: 9px 10px;
-  font-size: 13.5px;
+  font-size: var(--text-md);
   border-radius: calc(var(--radius-sm) - 3px);
   color: var(--ink);
   cursor: pointer;
@@ -263,22 +324,76 @@ main {
   background: var(--accent-soft);
 }
 
+.select-option {
+  font-weight: 400;
+}
+
 .select-option.is-selected {
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--ink);
+  font-weight: 650;
 }
 
 #search:focus,
 .select-trigger:focus-visible,
+.modal-close:focus-visible,
 .theme-toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
+.results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin: 0;
+  padding-bottom: 12px;
+  font-size: var(--text-sm);
+}
+
+.results-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration-color: var(--accent);
+}
+
+.link-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .result-count {
-  color: var(--muted);
-  font-size: 13px;
-  margin: 0 0 16px;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.price-basis {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.price-basis strong {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* ---------- Buttons ---------- */
@@ -291,7 +406,7 @@ main {
   gap: 6px;
   padding: 11px 16px;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: var(--text-md);
   font-weight: 600;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -300,9 +415,9 @@ main {
 }
 
 .btn-primary {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: #fff;
+  border: 1px solid var(--accent-strong);
+  background: var(--accent-strong);
+  color: var(--on-accent);
 }
 
 .btn-primary:hover {
@@ -337,27 +452,22 @@ main {
 
 /* ---------- Modal ---------- */
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(20, 16, 8, 0.45);
-  backdrop-filter: blur(2px);
-}
-
 .modal {
-  width: 100%;
+  width: calc(100% - 40px);
   max-width: 440px;
   max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
   overflow-y: auto;
   background: var(--bg-elevated);
+  color: var(--ink);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-hover);
+}
+
+.modal::backdrop {
+  background: rgba(20, 16, 8, 0.45);
 }
 
 .modal-header {
@@ -371,14 +481,18 @@ main {
 
 .modal-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-xl);
   font-weight: 650;
 }
 
 .modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -408,7 +522,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--ink-soft);
 }
@@ -416,10 +530,10 @@ main {
 .form-field input {
   width: 100%;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 400;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--ink);
@@ -436,6 +550,10 @@ main {
 
 .combobox input {
   padding-right: 34px;
+}
+
+.combobox-control {
+  position: relative;
 }
 
 .combobox-toggle {
@@ -455,31 +573,92 @@ main {
 }
 
 .combobox .select-listbox {
+  position: static;
   min-width: 0;
+  max-height: 220px;
+  margin-top: 6px;
+  box-shadow: none;
 }
 
-.combobox-hint {
-  color: var(--muted);
-  font-style: italic;
-  font-size: 12.5px;
-  cursor: default;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  margin-bottom: 4px;
-  padding-bottom: 10px;
+.combobox .select-option {
+  white-space: normal;
 }
 
-.combobox-hint:hover {
-  background: none;
+/* The new-category hint sits between the input and the suggestion list. */
+.combobox .field-hint {
+  margin-top: 6px;
 }
 
 .form-error {
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #c0392b 12%, transparent);
-  color: #c0392b;
-  font-size: 13px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.field-hint {
+  display: block;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.field-hint strong {
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-hint.is-warning {
+  color: var(--ink);
+}
+
+.field-hint.is-error {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.modal-actions.is-confirming {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.confirm-text {
+  flex-basis: 100%;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger);
+  color: var(--bg-elevated);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-danger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.results-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
 }
 
 .modal-actions {
@@ -489,96 +668,303 @@ main {
   margin-top: 4px;
 }
 
-/* ---------- Product grid ---------- */
+/* ---------- Price table ---------- */
 
-.results {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 14px;
+.results[aria-busy='true'] .price-table {
+  opacity: 0.55;
+  transition: opacity 0.15s ease 0.15s;
 }
 
-.product-card {
+.price-table {
+  --thead-h: 38px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
 }
 
-.product-card:hover {
-  box-shadow: var(--shadow-hover);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  transform: translateY(-1px);
+.col-code {
+  width: 168px;
 }
 
-.product-category {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent);
-  font-weight: 650;
+.col-price {
+  width: 132px;
 }
 
-.product-desc {
-  margin: 0;
-  font-size: 14.5px;
+.col-unit {
+  width: 152px;
+}
+
+.price-table thead th {
+  position: sticky;
+  top: calc(var(--header-h, 0px) + var(--toolbar-h, 0px));
+  z-index: 3;
+  height: var(--thead-h);
+  padding: 0 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
   font-weight: 600;
+  text-align: left;
+}
+
+.price-table thead th:first-child {
+  border-top-left-radius: var(--radius-md);
+}
+
+.price-table thead th:last-child {
+  border-top-right-radius: var(--radius-md);
+}
+
+.price-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: baseline;
+}
+
+.price-table tbody:last-of-type tr:last-child td {
+  border-bottom: 0;
+}
+
+.price-table tbody tr:not(.group-row):hover td {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+}
+
+.group-row th {
+  position: sticky;
+  top: calc(var(--header-h, 0px) + var(--toolbar-h, 0px) + var(--thead-h));
+  z-index: 2;
+  padding: 12px 16px 7px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 650;
+  text-align: left;
+}
+
+.group-count {
+  margin-left: 8px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.cell-desc {
+  color: var(--ink);
+  font-weight: 500;
   line-height: 1.4;
-  color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
-.product-code {
-  font-size: 11.5px;
-  color: var(--muted);
+.row-category {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.tag-custom {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.cell-code {
+  color: var(--ink-soft);
   font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
-.product-footer {
-  margin-top: auto;
-  padding-top: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.product-price {
-  font-size: 16.5px;
-  font-weight: 700;
-  color: var(--ink);
+.price-table .cell-price {
+  text-align: right;
   white-space: nowrap;
 }
 
-.product-unit {
-  font-size: 11.5px;
-  color: var(--muted);
-  text-align: right;
+.price-table td.cell-price {
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+
+.cell-unit {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.cell-unit.is-measured {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.search-notice {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-md);
+  line-height: 1.45;
+}
+
+.search-notice strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .empty-state {
   text-align: center;
-  color: var(--muted);
-  padding: 70px 20px;
-  font-size: 14.5px;
+  color: var(--ink-soft);
+  padding: 64px 20px;
+  font-size: var(--text-md);
+}
+
+.empty-state p {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.empty-state .empty-title {
+  color: var(--ink);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.empty-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.empty-actions:empty {
+  display: none;
+}
+
+/* ---------- Confirmation toast ---------- */
+
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 40;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--ink);
+  box-shadow: var(--shadow-hover);
+  font-size: var(--text-md);
+  animation: toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  background: var(--bg);
+}
+
+.toast-close:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* A newly added row holds a soft highlight, then fades to normal. */
+.price-table tr.is-new td {
+  animation: row-added 4s ease-out;
+}
+
+@keyframes row-added {
+  0%,
+  50% {
+    background: var(--success-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .price-table tr.is-new td {
+    animation: none;
+  }
+
+  .price-table tr.is-new td {
+    background: var(--success-soft);
+  }
 }
 
 /* ---------- Responsive ---------- */
 
 @media (max-width: 720px) {
+  .toolbar {
+    position: static;
+    margin: 0;
+    padding: 0;
+  }
+
+  .search-shortcut {
+    display: none;
+  }
+
+  /* Search on its own row; category and sort share the next. */
   .controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .search-field,
+  .btn-add {
+    grid-column: 1 / -1;
   }
 
   .select {
-    max-width: none;
-  }
-
-  .btn-add {
     width: 100%;
+    min-width: 0;
   }
 }
 
@@ -587,14 +973,11 @@ main {
     grid-template-columns: 1fr;
   }
 
-  .modal-backdrop {
-    align-items: flex-end;
-    padding: 0;
-  }
-
   .modal {
+    width: 100%;
     max-width: none;
     max-height: 88dvh;
+    margin: auto 0 0;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 }
@@ -605,24 +988,120 @@ main {
   }
 
   .brand h1 {
-    font-size: 15px;
+    font-size: var(--text-lg);
   }
 
   .brand p {
-    font-size: 11.5px;
+    font-size: var(--text-xs);
+    white-space: normal;
   }
 
   .brand-mark {
     width: 38px;
     height: 38px;
-    font-size: 12px;
+    font-size: var(--text-xs);
   }
 
   main {
     padding: 16px;
   }
 
-  .results {
-    grid-template-columns: 1fr;
+}
+
+/* Tablet widths: give the description column the room. */
+@media (max-width: 960px) {
+  .col-code {
+    width: 124px;
+  }
+
+  .col-price {
+    width: 108px;
+  }
+
+  .col-unit {
+    width: 124px;
+  }
+
+  .price-table thead th,
+  .price-table td,
+  .group-row th {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* Narrow screens: each row becomes a two-line block —
+   description and price on top, code and unit underneath. */
+@media (max-width: 640px) {
+  .price-table {
+    --thead-h: 0px;
+    display: block;
+  }
+
+  .price-table colgroup,
+  .price-table thead {
+    display: none;
+  }
+
+  .price-table tbody {
+    display: block;
+  }
+
+  .price-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 14px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .price-table tbody:last-of-type tr:last-child {
+    border-bottom: 0;
+  }
+
+  .price-table td {
+    padding: 0;
+    border: 0;
+  }
+
+  .price-table tbody tr:not(.group-row):hover td {
+    background: none;
+  }
+
+  .cell-desc {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .price-table td.cell-price {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .cell-code {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 4px;
+  }
+
+  .cell-unit {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 4px;
+    text-align: right;
+  }
+
+  .price-table tr.group-row {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .group-row th {
+    grid-column: 1 / -1;
+    padding: 12px 14px 7px;
+  }
+
+  .price-table tbody:first-of-type .group-row th {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
 }

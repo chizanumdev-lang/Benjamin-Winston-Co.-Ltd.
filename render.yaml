@@ -1,8 +1,6 @@
-databases:
-  - name: bw-catalogue-db
-    plan: free
-    postgresMajorVersion: "16"
-
+# The database is hosted on Neon. Set DATABASE_URL in the Render dashboard
+# (Environment → DATABASE_URL) to the Neon connection string; it is never
+# committed to the repo.
 services:
   - type: web
     name: bw-catalogue
@@ -12,6 +10,4 @@ services:
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: bw-catalogue-db
-          property: connectionString
+        sync: false

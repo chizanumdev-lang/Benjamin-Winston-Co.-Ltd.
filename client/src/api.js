@@ -12,7 +12,11 @@ export async function fetchProducts({ q, category, sort }) {
 
   const res = await fetch(`/api/products?${params.toString()}`)
   if (!res.ok) throw new Error('Failed to load products')
-  return res.json()
+  // "all": every word matched. "partial": closest matches, with the words
+  // nothing matched in `unmatched`. "none": nothing matched any word.
+  const match = res.headers.get('X-Search-Match') || 'all'
+  const unmatched = decodeURIComponent(res.headers.get('X-Search-Unmatched') || '')
+  return { products: await res.json(), match, unmatched }
 }
 
 export async function createProduct(product) {
@@ -23,7 +27,7 @@ export async function createProduct(product) {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error || 'Failed to add product')
+    throw new Error(body.error || `server responded ${res.status}`)
   }
   return res.json()
 }

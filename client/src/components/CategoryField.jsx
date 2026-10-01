@@ -13,7 +13,9 @@ const CategoryField = forwardRef(function CategoryField({ id, value, onChange, c
   }, [names, value])
 
   const trimmed = value.trim()
-  const isNewCategory = trimmed.length > 0 && !names.some((name) => name.toLowerCase() === trimmed.toLowerCase())
+  const exactMatch = names.find((name) => name.toLowerCase() === trimmed.toLowerCase())
+  const isNewCategory = trimmed.length > 0 && !exactMatch
+  const listboxId = `${id}-listbox`
 
   useEffect(() => {
     setHighlighted(-1)
@@ -60,55 +62,71 @@ const CategoryField = forwardRef(function CategoryField({ id, value, onChange, c
     <div
       className="combobox"
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false)
+        if (e.currentTarget.contains(e.relatedTarget)) return
+        setOpen(false)
+        // "ansell disco" becomes the existing "Ansell Disco" rather than a near-duplicate.
+        if (exactMatch && exactMatch !== value) onChange(exactMatch)
       }}
     >
-      <input
-        ref={ref}
-        id={id}
-        type="text"
-        autoComplete="off"
-        required
-        role="combobox"
-        aria-expanded={open}
-        aria-autocomplete="list"
-        value={value}
-        placeholder="e.g. Ansell Disco"
-        onChange={(e) => {
-          onChange(e.target.value)
-          setOpen(true)
-        }}
-        onKeyDown={handleKeyDown}
-      />
-      <button
-        type="button"
-        className="combobox-toggle"
-        tabIndex={-1}
-        aria-label="Show existing categories"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <svg className="select-chevron" viewBox="0 0 24 24" aria-hidden="true">
-          <polyline
-            points="6 9 12 15 18 9"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
+      <div className="combobox-control">
+        <input
+          ref={ref}
+          id={id}
+          type="text"
+          autoComplete="off"
+          required
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={open && highlighted >= 0 ? `${id}-opt-${highlighted}` : undefined}
+          aria-describedby={isNewCategory ? `${id}-hint` : undefined}
+          aria-autocomplete="list"
+          value={value}
+          placeholder="e.g. Ansell Disco"
+          onChange={(e) => {
+            onChange(e.target.value)
+            setOpen(true)
+          }}
+          onKeyDown={handleKeyDown}
+        />
+        <button
+          type="button"
+          className="combobox-toggle"
+          tabIndex={-1}
+          aria-label="Show existing categories"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <svg className="select-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline
+              points="6 9 12 15 18 9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
 
-      {open && (suggestions.length > 0 || isNewCategory) && (
-        <ul className="select-listbox" role="listbox">
-          {isNewCategory && (
-            <li className="select-option combobox-hint" aria-disabled="true">
-              "{trimmed}" will be added as a new category
-            </li>
-          )}
+      {isNewCategory &&
+        (suggestions.length > 0 ? (
+          <span id={`${id}-hint`} className="field-hint is-warning">
+            “{trimmed}” isn’t a category yet. If the item belongs in one of the {suggestions.length} matching
+            categories, pick it from the list.
+          </span>
+        ) : (
+          <span id={`${id}-hint`} className="field-hint">
+            “{trimmed}” will be added as a new category.
+          </span>
+        ))}
+
+      {open && suggestions.length > 0 && (
+        <ul className="select-listbox" role="listbox" id={listboxId}>
           {suggestions.map((name, index) => (
             <li
               key={name}
+              id={`${id}-opt-${index}`}
               role="option"
               aria-selected={name === value}
               className={`select-option${index === highlighted ? ' is-highlighted' : ''}${
