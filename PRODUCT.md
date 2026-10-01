@@ -36,7 +36,7 @@ It holds B&W's own transcribed price list, with the house's own categories, supp
 - Search covers description, code and category. There is a category filter, and sorting is by price or name. The API also accepts a min/max price, but the UI doesn't offer it yet.
 - Staff can add custom items with the "Add item" form. These are kept apart from master rows and survive the reseed. On every boot the server reseeds master rows from `data/catalogue.js`.
 - Light and dark themes.
-- Stack: React + Vite client, Express + Postgres server, deployed on Render.
+- Stack: React + Vite client, Express app (`app.js`) on Postgres (Neon). Deployed on Vercel: static build in `public/`, API as a serverless function (`api/index.js`). `server.js` runs the same app locally.
 - **Open:** adding items should be limited to staff, but there's no authentication yet. It needs adding later. Editing or deleting items isn't supported yet.
 
 ## Brand Commitments
