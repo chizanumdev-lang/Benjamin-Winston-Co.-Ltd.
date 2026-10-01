@@ -12,6 +12,7 @@ export default function ProductResults({
   category,
   grouped,
   newId,
+  onEdit,
   onClearSearch,
   onClearCategory,
 }) {
@@ -47,7 +48,13 @@ export default function ProductResults({
 
   return (
     <div className="results" aria-busy={loading}>
-      <ProductTable products={visible} grouped={grouped} showCategory={!grouped && !category} newId={newId} />
+      <ProductTable
+        products={visible}
+        grouped={grouped}
+        showCategory={!grouped && !category}
+        newId={newId}
+        onEdit={onEdit}
+      />
       {capped && (
         <div className="results-more">
           <button type="button" className="btn-secondary" onClick={() => setShowAllFor(query)}>

@@ -3,11 +3,14 @@ import Header from './components/Header.jsx'
 import Filters from './components/Filters.jsx'
 import ProductResults from './components/ProductResults.jsx'
 import AddProductModal from './components/AddProductModal.jsx'
-import { fetchCategories, fetchProducts } from './api.js'
+import EditPriceDialog from './components/EditPriceDialog.jsx'
+import PriceChangesDialog from './components/PriceChangesDialog.jsx'
+import { fetchCategories, fetchProducts, getStaff, setStaff } from './api.js'
 import { useDebouncedValue } from './hooks/useDebouncedValue.js'
 import { useTheme } from './hooks/useTheme.js'
 import { useStickyOffsets } from './hooks/useStickyOffsets.js'
 import { PRICE_LIST_DATE } from './priceList.js'
+import { formatNaira } from './format.js'
 
 function readParam(name) {
   return new URLSearchParams(window.location.search).get(name) || ''
@@ -30,6 +33,10 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [added, setAdded] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [changesOpen, setChangesOpen] = useState(false)
+  const [staffName, setStaffName] = useState(() => getStaff()?.name || '')
+  const dialogOpen = addModalOpen || Boolean(editing) || changesOpen
 
   const searchRef = useRef(null)
   const debouncedSearch = useDebouncedValue(search, 200)
@@ -62,7 +69,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (addModalOpen) return
+    if (dialogOpen) return
     function handleKeyDown(e) {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
       const target = e.target
@@ -73,7 +80,7 @@ export default function App() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [addModalOpen])
+  }, [dialogOpen])
 
   function clearAll() {
     setSearch('')
@@ -109,8 +116,21 @@ export default function App() {
   }, [debouncedSearch, category, sort, refreshKey])
 
   function handleProductCreated(saved) {
-    setAdded(saved)
+    setAdded({ ...saved, kind: 'added' })
+    setStaffName(getStaff()?.name || '')
     setRefreshKey((k) => k + 1)
+  }
+
+  function handlePriceSaved(saved) {
+    setEditing(null)
+    setAdded({ ...saved, kind: 'edited' })
+    setStaffName(getStaff()?.name || '')
+    setRefreshKey((k) => k + 1)
+  }
+
+  function signOut() {
+    setStaff(null)
+    setStaffName('')
   }
 
   // Show the new item in its category, highlighted.
@@ -135,7 +155,13 @@ export default function App() {
 
   return (
     <>
-      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Header
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        staffName={staffName}
+        onSignOut={signOut}
+        onShowChanges={() => setChangesOpen(true)}
+      />
       <main>
         <div className="toolbar">
           <Filters
@@ -205,6 +231,7 @@ export default function App() {
             category={category}
             grouped={!sort && !debouncedSearch.trim()}
             newId={added?.id}
+            onEdit={setEditing}
             onClearSearch={() => {
               setSearch('')
               searchRef.current?.focus()
@@ -222,10 +249,17 @@ export default function App() {
       <div className="toast-region" role="status" aria-live="polite">
         {added && (
           <div className="toast">
-            <span>
-              Added <strong>{added.description}</strong> to {added.category}.
-            </span>
-            {category !== added.category && (
+            {added.kind === 'edited' ? (
+              <span>
+                <strong>{added.code || added.description}</strong> now {formatNaira(added.price)} (was{' '}
+                {formatNaira(added.old_price)}).
+              </span>
+            ) : (
+              <span>
+                Added <strong>{added.description}</strong> to {added.category}.
+              </span>
+            )}
+            {!products.some((p) => p.id === added.id) && (
               <button type="button" className="link-button" onClick={showAdded}>
                 Show it
               </button>
@@ -238,6 +272,12 @@ export default function App() {
           </div>
         )}
       </div>
+      <EditPriceDialog product={editing} onClose={() => setEditing(null)} onSaved={handlePriceSaved} />
+      <PriceChangesDialog
+        open={changesOpen}
+        onClose={() => setChangesOpen(false)}
+        onSignedIn={() => setStaffName(getStaff()?.name || '')}
+      />
       <AddProductModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}

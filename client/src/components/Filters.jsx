@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import Select from './Select.jsx'
 
 const SORT_OPTIONS = [
+  { value: 'code_asc', label: 'Sort: Code' },
   { value: 'price_asc', label: 'Sort: Price, low to high' },
   { value: 'price_desc', label: 'Sort: Price, high to low' },
   { value: 'name_asc', label: 'Sort: Name, A–Z' },

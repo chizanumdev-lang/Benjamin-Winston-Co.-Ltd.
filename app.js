@@ -43,13 +43,34 @@ async function setup() {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS price_edited_at TIMESTAMPTZ;
+      -- Every price change: staff edits, items added, and price-list reloads.
+      CREATE TABLE IF NOT EXISTS price_audit (
+        id SERIAL PRIMARY KEY,
+        changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        changed_by TEXT NOT NULL,
+        source TEXT NOT NULL,
+        category TEXT NOT NULL,
+        code TEXT,
+        description TEXT NOT NULL,
+        unit TEXT NOT NULL,
+        old_price NUMERIC,
+        new_price NUMERIC NOT NULL
+      );
     `);
 
     const { rows } = await client.query("SELECT value FROM catalogue_meta WHERE key = 'version'");
     if (rows[0]?.value !== catalogueVersion) {
       // data/catalogue.js is the source of truth for the transcribed price list.
       // Rows added through the "Add item" form are marked is_custom and are
-      // never touched by the reseed.
+      // never touched by the reseed. Prices staff have edited are kept, and
+      // every list price that changes is written to the audit log.
+      const before = await client.query(
+        "SELECT category, code, description, price, price_edited_at FROM products WHERE is_custom = FALSE"
+      );
+      const keyOf = (r) => `${r.category}\u0000${r.code || ""}\u0000${r.description}`;
+      const previous = new Map(before.rows.map((r) => [keyOf(r), r]));
+
       await client.query("DELETE FROM products WHERE is_custom = FALSE");
       await client.query(
         `INSERT INTO products (category, code, description, price, unit, is_custom)
@@ -64,6 +85,24 @@ async function setup() {
           catalogue.map((r) => r.unit),
         ]
       );
+
+      for (const row of catalogue) {
+        const old = previous.get(keyOf(row));
+        if (old?.price_edited_at) {
+          await client.query(
+            `UPDATE products SET price = $1, price_edited_at = $2
+             WHERE is_custom = FALSE AND category = $3 AND COALESCE(code, '') = $4 AND description = $5`,
+            [old.price, old.price_edited_at, row.category, row.code || "", row.description]
+          );
+        } else if (old && Number(old.price) !== Number(row.price)) {
+          await client.query(
+            `INSERT INTO price_audit (changed_by, source, category, code, description, unit, old_price, new_price)
+             VALUES ('Price list', 'price-list', $1, $2, $3, $4, $5, $6)`,
+            [row.category, row.code, row.description, row.unit, old.price, row.price]
+          );
+        }
+      }
+
       await client.query(
         `INSERT INTO catalogue_meta (key, value) VALUES ('version', $1)
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
@@ -98,6 +137,82 @@ app.use(express.static(path.join(__dirname, "public")));
 // Every API request waits for the one-time database setup (a no-op once done).
 app.use("/api", (req, res, next) => {
   ready().then(() => next(), next);
+});
+
+// Writes need the staff PIN (EDIT_PIN, a server secret) and a name for the
+// audit log. With no EDIT_PIN configured, editing stays switched off.
+function pinMatches(given) {
+  const expected = Buffer.from(String(process.env.EDIT_PIN || ""));
+  const actual = Buffer.from(String(given || ""));
+  return expected.length > 0 && actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
+function requireStaff(req, res, next) {
+  if (!process.env.EDIT_PIN) {
+    return res.status(503).json({ error: "editing isn't switched on: set EDIT_PIN on the server" });
+  }
+  if (!pinMatches(req.get("X-Staff-Pin"))) {
+    return res.status(401).json({ error: "wrong staff PIN" });
+  }
+  const name = decodeURIComponent(req.get("X-Staff-Name") || "").trim().slice(0, 60);
+  if (!name) return res.status(400).json({ error: "enter your name for the change log" });
+  req.staffName = name;
+  next();
+}
+
+// Lets the client check a PIN before showing staff-only screens.
+app.post("/api/staff/check", requireStaff, (req, res) => {
+  res.json({ ok: true });
+});
+
+app.patch("/api/products/:id", requireStaff, async (req, res, next) => {
+  const id = Number(req.params.id);
+  const price = Number((req.body || {}).price);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "unknown item" });
+  if (!Number.isFinite(price) || price <= 0) {
+    return res.status(400).json({ error: "price must be more than 0" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const current = await client.query("SELECT * FROM products WHERE id = $1 FOR UPDATE", [id]);
+    const item = current.rows[0];
+    if (!item) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "this item no longer exists; reload the list" });
+    }
+    const { rows } = await client.query(
+      `UPDATE products SET price = $1, price_edited_at = now() WHERE id = $2
+       RETURNING id, category, code, description, price::float8 AS price, unit, is_custom, price_edited_at`,
+      [price, id]
+    );
+    await client.query(
+      `INSERT INTO price_audit (changed_by, source, category, code, description, unit, old_price, new_price)
+       VALUES ($1, 'edit', $2, $3, $4, $5, $6, $7)`,
+      [req.staffName, item.category, item.code, item.description, item.unit, item.price, price]
+    );
+    await client.query("COMMIT");
+    res.json({ ...rows[0], old_price: Number(item.price) });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/price-changes", requireStaff, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, changed_at, changed_by, source, category, code, description, unit,
+              old_price::float8 AS old_price, new_price::float8 AS new_price
+       FROM price_audit ORDER BY changed_at DESC, id DESC LIMIT 200`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/api/categories", async (req, res, next) => {
@@ -138,17 +253,20 @@ app.get("/api/products", async (req, res, next) => {
       price_desc: "price DESC",
       name_asc: "description ASC",
       name_desc: "description DESC",
+      code_asc: "code ASC",
     };
     const orderBy = sortMap[sort] || "category ASC, description ASC";
 
     const { rows } = await pool.query(
-      `SELECT id, category, code, description, price::float8 AS price, unit, is_custom FROM products ${where} ORDER BY ${orderBy}`,
+      `SELECT id, category, code, description, price::float8 AS price, unit, is_custom, price_edited_at
+       FROM products ${where} ORDER BY ${orderBy}`,
       params
     );
 
     // Text sorts compare numbers as numbers ("2.5mm" before "10mm"), which
     // SQL's ORDER BY can't do.
-    if (sort === "name_asc") rows.sort((a, b) => natural.compare(a.description, b.description));
+    if (sort === "code_asc") rows.sort((a, b) => (!a.code) - (!b.code) || natural.compare(a.code, b.code));
+    else if (sort === "name_asc") rows.sort((a, b) => natural.compare(a.description, b.description));
     else if (sort === "name_desc") rows.sort((a, b) => natural.compare(b.description, a.description));
     else if (!sortMap[sort]) rows.sort(byCategoryThenDescription);
 
@@ -168,7 +286,7 @@ app.get("/api/products", async (req, res, next) => {
   }
 });
 
-app.post("/api/products", async (req, res, next) => {
+app.post("/api/products", requireStaff, async (req, res, next) => {
   try {
     const body = req.body || {};
     const category = String(body.category || "").trim();
@@ -185,10 +303,16 @@ app.post("/api/products", async (req, res, next) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO products (category, code, description, price, unit, is_custom)
-       VALUES ($1, $2, $3, $4, $5, TRUE)
-       RETURNING id, category, code, description, price::float8 AS price, unit, is_custom`,
-      [category, code, description, price, unit]
+      `WITH added AS (
+         INSERT INTO products (category, code, description, price, unit, is_custom)
+         VALUES ($1, $2, $3, $4, $5, TRUE)
+         RETURNING id, category, code, description, price, unit, is_custom, price_edited_at
+       ), logged AS (
+         INSERT INTO price_audit (changed_by, source, category, code, description, unit, old_price, new_price)
+         SELECT $6, 'added', category, code, description, unit, NULL, price FROM added
+       )
+       SELECT id, category, code, description, price::float8 AS price, unit, is_custom, price_edited_at FROM added`,
+      [category, code, description, price, unit, req.staffName]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { createProduct } from '../api.js'
+import { StaffAuthError, createProduct, getStaff, signInStaff, rememberName, rememberedName } from '../api.js'
+import StaffFields from './StaffFields.jsx'
 import CategoryField from './CategoryField.jsx'
 import { formatNaira, formatUnit } from '../format.js'
 
@@ -10,6 +11,9 @@ export default function AddProductModal({ open, onClose, onCreated, categories }
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  const [staff, setStaffFields] = useState({ pin: '', name: '' })
+  const [needsSignIn, setNeedsSignIn] = useState(true)
+  const [pinError, setPinError] = useState(null)
   const keepEditingRef = useRef(null)
   const firstFieldRef = useRef(null)
   const dialogRef = useRef(null)
@@ -25,6 +29,9 @@ export default function AddProductModal({ open, onClose, onCreated, categories }
       setForm(EMPTY_FORM)
       setError(null)
       setConfirmingDiscard(false)
+      setNeedsSignIn(!getStaff())
+      setStaffFields({ pin: '', name: rememberedName() })
+      setPinError(null)
       dialog.showModal()
       firstFieldRef.current?.focus()
     } else if (!open && dialog.open) {
@@ -62,10 +69,17 @@ export default function AddProductModal({ open, onClose, onCreated, categories }
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    setPinError(null)
     setSubmitting(true)
     // Reuse an existing category's exact spelling when only the case differs.
     const existing = categories.find((c) => c.category.toLowerCase() === form.category.trim().toLowerCase())
     try {
+      if (needsSignIn) {
+        const signIn = { pin: staff.pin.trim(), name: staff.name.trim() }
+        await signInStaff(signIn)
+        rememberName(signIn.name)
+        setNeedsSignIn(false)
+      }
       const saved = await createProduct({
         category: existing ? existing.category : form.category.trim(),
         code: form.code,
@@ -76,6 +90,11 @@ export default function AddProductModal({ open, onClose, onCreated, categories }
       onCreated(saved)
       dialogRef.current?.close()
     } catch (err) {
+      if (err instanceof StaffAuthError) {
+        setNeedsSignIn(true)
+        setPinError(err.message)
+        return
+      }
       setError(
         err instanceof TypeError
           ? 'Couldn’t reach the server, so the item wasn’t added. Your entry is still here. Try again in a moment.'
@@ -173,6 +192,10 @@ export default function AddProductModal({ open, onClose, onCreated, categories }
             )}
           </span>
         </label>
+
+        {needsSignIn && (
+          <StaffFields value={staff} onChange={setStaffFields} error={pinError} idPrefix="add" />
+        )}
 
         {error && (
           <p className="form-error" role="alert">
